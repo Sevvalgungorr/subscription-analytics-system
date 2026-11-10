@@ -3,6 +3,8 @@ import random
 from datetime import datetime, timedelta
 import pandas as pd
 
+random.seed(42)  # her çalıştırmada aynı veri
+
 
 # VERİTABANI BAĞLANTI
 
@@ -66,7 +68,7 @@ for i in range(200):
     """, (
         f"user{i}",
         f"user{i}@mail.com",
-        signup.date(),
+        signup.date().isoformat(),
         random.choice(countries)
     ))
 
@@ -85,29 +87,41 @@ for user_id in range(1, 201):
     cursor.execute("""
         INSERT INTO subscriptions (user_id,plan_id,start_date,end_date,status)
         VALUES (?,?,?,?,?)
-    """, (user_id, plan_id, start.date(), 
-          end.date() if end else None, status))
+    """, (user_id, plan_id, start.date().isoformat(),
+          end.date().isoformat() if end else None, status))
+
+
+# Kullanıcı davranış profilleri:
+#  - %10 "pasif": son 30 gündür hiç kullanmıyor
+#  - %15 "düşüşte": son 14 günde kullanımı %80+ azalmış (churn adayı)
+#  - geri kalanı normal kullanıcı
+def gunluk_kullanim():
+    rand = random.random()
+    if rand < 0.1:
+        return 0
+    elif rand < 0.3:
+        return random.randint(1, 3)
+    elif rand < 0.8:
+        return random.randint(10, 60)
+    return random.randint(100, 180)
 
 
 for user_id in range(1, 201):
+    profil = random.random()
     for day in range(60):
         date = datetime.now() - timedelta(days=day)
 
-        # Kullanım tipi
-        rand = random.random()
-        if rand < 0.1:
-            minutes = 0
-        elif rand < 0.3:
-            minutes = random.randint(1, 3)
-        elif rand < 0.8:
-            minutes = random.randint(10, 60)
+        if profil < 0.10 and day <= 30:
+            minutes = 0                                  # pasif
+        elif profil < 0.25 and day < 14:
+            minutes = random.randint(0, 2)               # düşüşte
         else:
-            minutes = random.randint(100, 180)
+            minutes = gunluk_kullanim()                  # normal
 
         cursor.execute("""
             INSERT INTO usage_logs (user_id,usage_date,minutes_used)
             VALUES (?,?,?)
-        """, (user_id, date.date(), minutes))
+        """, (user_id, date.date().isoformat(), minutes))
 
 conn.commit()
 
